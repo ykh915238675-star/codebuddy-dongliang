@@ -84,6 +84,36 @@
             font-variant-numeric: tabular-nums;
         }
 
+        /* ====== 策略切换标签 ====== */
+        .strategy-tabs {
+            display: flex;
+            gap: 4px;
+            background: rgba(255,255,255,0.04);
+            border-radius: 10px;
+            padding: 3px;
+        }
+        .strategy-tab {
+            padding: 7px 16px;
+            border-radius: 8px;
+            border: none;
+            background: transparent;
+            color: var(--text-secondary);
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            white-space: nowrap;
+        }
+        .strategy-tab:hover {
+            color: var(--text-primary);
+            background: rgba(255,255,255,0.04);
+        }
+        .strategy-tab.active {
+            background: var(--accent);
+            color: #fff;
+            box-shadow: 0 2px 8px rgba(99,102,241,0.3);
+        }
+
         /* ====== 主内容区 ====== */
         .main-content {
             max-width: 1100px;
@@ -910,6 +940,10 @@
             <div class="nav-brand-icon">📈</div>
             <span>ETF动量轮动</span>
         </div>
+        <div class="strategy-tabs">
+            <button class="strategy-tab active" data-strategy="momentum" onclick="switchStrategy('momentum')">动量轮动</button>
+            <button class="strategy-tab" data-strategy="topscore" onclick="switchStrategy('topscore')">最高评分</button>
+        </div>
         <div class="nav-right">
             <span class="nav-date" id="navDate"></span>
         </div>
@@ -1083,6 +1117,39 @@
     <script>
         // ====== 全局状态 ======
         let isLoading = false;
+        let currentStrategy = 'momentum';  // 当前策略：'momentum' | 'topscore'
+
+        // ====== 策略切换 ======
+        function switchStrategy(strategy) {
+            if (strategy === currentStrategy) return;
+            currentStrategy = strategy;
+
+            // 更新标签高亮
+            document.querySelectorAll('.strategy-tab').forEach(tab => {
+                tab.classList.toggle('active', tab.dataset.strategy === strategy);
+            });
+
+            // 重置界面
+            document.getElementById('heroEmpty').classList.remove('hidden');
+            document.getElementById('heroContent').classList.add('hidden');
+            document.getElementById('rankingSection').style.display = 'none';
+            document.getElementById('filteredSection').style.display = 'none';
+            document.getElementById('btEmpty').classList.remove('hidden');
+            document.getElementById('btResult').classList.add('hidden');
+            document.getElementById('updateInfo').innerHTML = '';
+
+            // 清空回测缓存
+            Object.keys(btCache).forEach(k => delete btCache[k]);
+
+            // 重新加载策略说明
+            loadStrategy();
+
+            // 尝试加载缓存数据
+            loadCachedData();
+
+            // 重新触发回测
+            btPreset(btActivePreset || 1);
+        }
 
         // ====== 页面初始化 ======
         document.addEventListener('DOMContentLoaded', () => {
@@ -1099,7 +1166,7 @@
         // ====== 加载缓存数据 ======
         async function loadCachedData() {
             try {
-                const resp = await fetch('/api/recommendation?cache=true');
+                const resp = await fetch(`/api/recommendation?cache=true&strategy=${currentStrategy}`);
                 if (resp.ok) {
                     const data = await resp.json();
                     if (!data.error) renderRecommendation(data);
@@ -1119,6 +1186,7 @@
                 const resp = await fetch('/api/refresh', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ strategy: currentStrategy }),
                 });
                 if (resp.ok) {
                     const data = await resp.json();
@@ -1162,9 +1230,11 @@
                             ${isDefense ? '防御模式' : '建议买入'}
                         </div>
                         <div class="hero-subtitle">
-                            ${isDefense
-                                ? '当前无符合条件的ETF，建议持有防御性资产'
-                                : '基于动量排名，以下标的趋势最优'}
+                            ${data.empty_signal
+                                ? '上证180ETF评分最高，市场偏防御，建议空仓'
+                                : (isDefense
+                                    ? '当前无符合条件的ETF，建议持有防御性资产'
+                                    : '基于动量排名，以下标的趋势最优')}
                         </div>
                     </div>
                 </div>
@@ -1308,7 +1378,7 @@
         // ====== 加载策略描述 ======
         async function loadStrategy() {
             try {
-                const resp = await fetch('/api/strategy');
+                const resp = await fetch(`/api/strategy?strategy=${currentStrategy}`);
                 if (!resp.ok) return;
                 const s = await resp.json();
 
@@ -1425,7 +1495,7 @@
                 const resp = await fetch('/api/backtest', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ start_date: startDate, end_date: endDate }),
+                    body: JSON.stringify({ start_date: startDate, end_date: endDate, strategy: currentStrategy }),
                 });
                 const data = await resp.json();
                 if (!resp.ok || data.error) {

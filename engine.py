@@ -60,6 +60,10 @@ ETF_NAME_MAP = {
     "511220": {"name": "城投债ETF", "market": "sh", "category": "债券"},
     # 防御性ETF
     "511880": {"name": "货币基金ETF", "market": "sh", "category": "防御"},
+    # 最高评分策略专用
+    "159934": {"name": "黄金ETF(小)", "market": "sz", "category": "大宗商品"},
+    "159941": {"name": "纳指100ETF", "market": "sz", "category": "国际"},
+    "510180": {"name": "上证180ETF", "market": "sh", "category": "A股指数"},
 }
 
 
@@ -902,4 +906,527 @@ class QuantEngine:
             'nav_series': nav_series,
             'stats': stats,
             'trades': trades[-50:],  # 最多返回50条交易记录
+        }
+
+
+class TopScoreEngine:
+    """
+    最高评分策略引擎
+    ETF池：黄金ETF、纳指100、创业板100、上证180
+    特殊规则：上证180ETF评分最高时选择空仓
+    无过滤器，纯动量评分选股
+    """
+
+    def __init__(self, data_dir='data'):
+        self.data_dir = data_dir
+        os.makedirs(data_dir, exist_ok=True)
+
+        # ETF池
+        self.etf_pool = [
+            "159934.XSHE",  # 黄金ETF
+            "159941.XSHE",  # 纳指100
+            "159915.XSHE",  # 创业板100
+            "510180.XSHG",  # 上证180
+        ]
+
+        # 上证180ETF - 信号为此时空仓
+        self.empty_signal_etf = "510180.XSHG"
+
+        # 防御性ETF（空仓时使用）
+        self.defensive_etf = "511880.XSHG"
+
+        self.m_days = 25  # 动量参考天数
+        self.holdings_num = 1
+        self.min_score = 0
+        self.max_score = 5  # 得分安全区间上限
+
+        # 价格数据缓存
+        self._price_cache = {}
+
+    def get_etf_history(self, jq_code, days=60):
+        """获取ETF历史行情数据"""
+        pure_code = jq_code_to_pure(jq_code)
+        cache_key = f"ts_{pure_code}_{days}"
+
+        if cache_key in self._price_cache:
+            cached_data, cached_time = self._price_cache[cache_key]
+            if (datetime.now() - cached_time).seconds < 600:
+                return cached_data
+
+        try:
+            df = ak.fund_etf_hist_sina(symbol=jq_code_to_ak(jq_code))
+            if df is not None and not df.empty:
+                df = df.copy()
+                df['date'] = pd.to_datetime(df['date'])
+                df = df.sort_values('date').reset_index(drop=True)
+                df = df.tail(days + 10)
+                self._price_cache[cache_key] = (df, datetime.now())
+                return df
+            return None
+        except Exception as e:
+            print(f"获取 {jq_code} ({get_etf_name(jq_code)}) 数据失败: {e}")
+            try:
+                df = ak.fund_etf_hist_em(symbol=pure_code, adjust="qfq")
+                if df is not None and not df.empty:
+                    df = df.rename(columns={
+                        '日期': 'date', '开盘': 'open', '收盘': 'close',
+                        '最高': 'high', '最低': 'low', '成交量': 'volume'
+                    })
+                    df['date'] = pd.to_datetime(df['date'])
+                    df = df.sort_values('date').reset_index(drop=True)
+                    df = df.tail(days + 10)
+                    self._price_cache[cache_key] = (df, datetime.now())
+                    return df
+            except Exception as e2:
+                print(f"备选方案也失败: {e2}")
+            return None
+
+    def calculate_mom_score(self, price_series):
+        """
+        计算动量评分（最高评分策略专用算法）
+        score = annualized_returns * r_squared
+        其中 annualized_returns = exp(slope)^250 - 1
+        """
+        if len(price_series) < self.m_days:
+            return 0
+
+        y = np.log(price_series[-self.m_days:])
+        n = len(y)
+        x = np.arange(n)
+        weights = np.linspace(1, 2, n)
+
+        slope, intercept = np.polyfit(x, y, 1, w=weights)
+        annualized_returns = math.pow(math.exp(slope), 250) - 1
+
+        residuals = y - (slope * x + intercept)
+        weighted_residuals = weights * residuals ** 2
+        r_squared = 1 - (np.sum(weighted_residuals) / np.sum(weights * (y - np.mean(y)) ** 2))
+
+        score = annualized_returns * r_squared
+        return score
+
+    def calculate_momentum_metrics(self, jq_code):
+        """计算ETF的动量指标"""
+        try:
+            etf_name = get_etf_name(jq_code)
+            df = self.get_etf_history(jq_code, days=self.m_days + 30)
+
+            if df is None or len(df) < self.m_days:
+                return None
+
+            price_series = df['close'].values.astype(float)
+            current_price = price_series[-1]
+            score = self.calculate_mom_score(price_series)
+
+            # 计算年化收益和R²用于展示
+            y = np.log(price_series[-self.m_days:])
+            x = np.arange(len(y))
+            weights = np.linspace(1, 2, len(y))
+            slope, intercept = np.polyfit(x, y, 1, w=weights)
+            annualized_returns = math.pow(math.exp(slope), 250) - 1
+            residuals = y - (slope * x + intercept)
+            weighted_residuals = weights * residuals ** 2
+            ss_tot = np.sum(weights * (y - np.mean(y)) ** 2)
+            r_squared = 1 - (np.sum(weighted_residuals) / ss_tot) if ss_tot else 0
+
+            # 计算近N日涨跌幅
+            changes = []
+            for i in range(1, min(6, len(price_series))):
+                change = (price_series[-i] / price_series[-i - 1] - 1) * 100
+                changes.append(round(change, 2))
+
+            # 判断是否在安全区间内
+            in_range = (score > self.min_score) and (score <= self.max_score)
+
+            return {
+                'etf': jq_code,
+                'etf_name': etf_name,
+                'category': get_etf_category(jq_code),
+                'annualized_returns': round(float(annualized_returns), 4),
+                'r_squared': round(float(r_squared), 4),
+                'score': round(float(score), 4),
+                'slope': round(float(slope), 6),
+                'current_price': round(float(current_price), 4),
+                'short_return': 0,
+                'short_annualized': 0,
+                'current_rsi': 0,
+                'max_recent_rsi': 0,
+                'recent_changes': changes,
+                'filtered': not in_range,
+                'filter_reason': '' if in_range else f'得分不在安全区间 (score={score:.4f}, 需0~{self.max_score})',
+            }
+
+        except Exception as e:
+            print(f"计算 {jq_code} 动量指标时出错: {e}")
+            traceback.print_exc()
+            return None
+
+    def get_ranked_etfs(self):
+        """获取符合条件的ETF排名"""
+        etf_metrics = []
+        filtered_etfs = []
+        errors = []
+
+        for etf in self.etf_pool:
+            try:
+                metrics = self.calculate_momentum_metrics(etf)
+                if metrics is not None:
+                    if metrics.get('filtered', False):
+                        filtered_etfs.append(metrics)
+                    else:
+                        etf_metrics.append(metrics)
+            except Exception as e:
+                errors.append({'etf': etf, 'error': str(e)})
+
+        etf_metrics.sort(key=lambda x: x['score'], reverse=True)
+        return etf_metrics, filtered_etfs, errors
+
+    def get_today_recommendation(self):
+        """获取今日推荐"""
+        ranked_etfs, filtered_etfs, errors = self.get_ranked_etfs()
+
+        target_etfs = []
+        defense_mode = False
+        empty_signal = False
+
+        if ranked_etfs:
+            top_etf = ranked_etfs[0]
+            # 特殊规则：上证180ETF评分最高时选择空仓
+            if top_etf['etf'] == self.empty_signal_etf:
+                empty_signal = True
+                defense_mode = True
+            else:
+                target_etfs.append(top_etf)
+
+        if not target_etfs:
+            defense_mode = True
+            defensive_name = get_etf_name(self.defensive_etf)
+            target_etfs = [{
+                'etf': self.defensive_etf,
+                'etf_name': defensive_name,
+                'category': '防御',
+                'score': 0,
+                'annualized_returns': 0,
+                'r_squared': 0,
+                'current_price': 0,
+                'short_return': 0,
+                'short_annualized': 0,
+                'current_rsi': 0,
+                'max_recent_rsi': 0,
+                'recent_changes': [],
+                'filtered': False,
+                'filter_reason': '',
+                'is_defensive': True,
+            }]
+
+        result = {
+            'update_time': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+            'defense_mode': defense_mode,
+            'empty_signal': empty_signal,
+            'target_etfs': target_etfs,
+            'ranked_etfs': ranked_etfs,
+            'filtered_etfs': filtered_etfs,
+            'errors': errors,
+            'strategy_name': '最高评分',
+            'pool_size': len(self.etf_pool),
+            'params': {
+                'lookback_days': self.m_days,
+                'holdings_num': self.holdings_num,
+                'max_score': self.max_score,
+                'empty_signal_etf': get_etf_name(self.empty_signal_etf),
+            }
+        }
+
+        # 保存结果到文件
+        self._save_result(result)
+        return result
+
+    def _save_result(self, result):
+        """保存计算结果到文件"""
+        try:
+            date_str = datetime.now().strftime('%Y-%m-%d')
+            filepath = os.path.join(self.data_dir, f'result_topscore_{date_str}.json')
+            with open(filepath, 'w', encoding='utf-8') as f:
+                json.dump(result, f, ensure_ascii=False, indent=2, default=str)
+        except Exception as e:
+            print(f"保存结果失败: {e}")
+
+    def get_cached_result(self):
+        """获取今日的缓存结果"""
+        try:
+            date_str = datetime.now().strftime('%Y-%m-%d')
+            filepath = os.path.join(self.data_dir, f'result_topscore_{date_str}.json')
+            if os.path.exists(filepath):
+                with open(filepath, 'r', encoding='utf-8') as f:
+                    return json.load(f)
+        except Exception as e:
+            print(f"读取缓存失败: {e}")
+        return None
+
+    def clear_cache(self):
+        """清除价格数据缓存"""
+        self._price_cache = {}
+
+    # ==================== 回测引擎 ====================
+
+    def get_etf_full_history(self, jq_code, start_date=None, end_date=None):
+        """获取ETF完整历史数据（用于回测）"""
+        pure_code = jq_code_to_pure(jq_code)
+        try:
+            df = ak.fund_etf_hist_sina(symbol=jq_code_to_ak(jq_code))
+            if df is not None and not df.empty:
+                df = df.copy()
+                df['date'] = pd.to_datetime(df['date'])
+                df = df.sort_values('date').reset_index(drop=True)
+                if start_date:
+                    df = df[df['date'] >= pd.to_datetime(start_date)]
+                if end_date:
+                    df = df[df['date'] <= pd.to_datetime(end_date)]
+                return df
+            return None
+        except Exception:
+            try:
+                df = ak.fund_etf_hist_em(symbol=pure_code, adjust="qfq")
+                if df is not None and not df.empty:
+                    df = df.rename(columns={
+                        '日期': 'date', '开盘': 'open', '收盘': 'close',
+                        '最高': 'high', '最低': 'low', '成交量': 'volume'
+                    })
+                    df['date'] = pd.to_datetime(df['date'])
+                    df = df.sort_values('date').reset_index(drop=True)
+                    if start_date:
+                        df = df[df['date'] >= pd.to_datetime(start_date)]
+                    if end_date:
+                        df = df[df['date'] <= pd.to_datetime(end_date)]
+                    return df
+            except Exception:
+                pass
+            return None
+
+    def _calc_score_at(self, price_series):
+        """给定一段价格序列，计算当日策略得分"""
+        if len(price_series) < self.m_days:
+            return (0, True, '数据不足')
+
+        score = self.calculate_mom_score(price_series)
+
+        if score <= self.min_score or score > self.max_score:
+            return (0, True, '得分不在安全区间')
+
+        return (score, False, '')
+
+    def run_backtest(self, start_date, end_date):
+        """运行回测"""
+        import logging
+        logger = logging.getLogger(__name__)
+
+        pool = self.etf_pool
+        warmup_days = self.m_days + 40
+        fetch_start = (pd.to_datetime(start_date) - timedelta(days=warmup_days * 2)).strftime('%Y-%m-%d')
+
+        all_data = {}
+        for etf in pool:
+            df = self.get_etf_full_history(etf, start_date=fetch_start, end_date=end_date)
+            if df is not None and not df.empty:
+                df = df.set_index('date').sort_index()
+                all_data[etf] = df
+
+        if not all_data:
+            return {'error': '无法获取ETF历史数据'}
+
+        # 获取防御ETF数据
+        def_df = self.get_etf_full_history(self.defensive_etf, start_date=fetch_start, end_date=end_date)
+        if def_df is not None and not def_df.empty:
+            def_df = def_df.set_index('date').sort_index()
+            all_data[self.defensive_etf] = def_df
+
+        # 建立公共交易日序列
+        all_dates = set()
+        for df in all_data.values():
+            all_dates.update(df.index.tolist())
+        all_dates = sorted(all_dates)
+
+        bt_start = pd.to_datetime(start_date)
+        bt_end = pd.to_datetime(end_date)
+        trade_dates = [d for d in all_dates if bt_start <= d <= bt_end]
+
+        if len(trade_dates) < 2:
+            return {'error': '回测区间交易日不足'}
+
+        # 逐日模拟
+        nav = 1.0
+        holding = None
+        buy_price = 0.0
+        nav_series = []
+        trades = []
+        win_count = 0
+        loss_count = 0
+        max_nav = 1.0
+        max_drawdown = 0.0
+
+        for i, date in enumerate(trade_dates):
+            # 对每只ETF计算当日得分
+            best_etf = None
+            best_score = -1
+
+            for etf in pool:
+                if etf not in all_data:
+                    continue
+                df = all_data[etf]
+                hist = df[df.index <= date]
+                if len(hist) < self.m_days:
+                    continue
+                prices = hist['close'].values.astype(float)
+                score, filtered, _ = self._calc_score_at(prices)
+                if not filtered and score > best_score:
+                    best_score = score
+                    best_etf = etf
+
+            # 特殊规则：上证180ETF评分最高时选择空仓（使用防御ETF）
+            if best_etf == self.empty_signal_etf:
+                best_etf = self.defensive_etf
+
+            # 如果无合格标的，选防御ETF
+            if best_etf is None:
+                best_etf = self.defensive_etf
+
+            # 获取当日价格
+            def get_price(etf_code, d):
+                if etf_code in all_data:
+                    df = all_data[etf_code]
+                    if d in df.index:
+                        return float(df.loc[d, 'close'])
+                    prev = df[df.index <= d]
+                    if not prev.empty:
+                        return float(prev.iloc[-1]['close'])
+                return None
+
+            current_price = get_price(best_etf, date)
+            holding_price = get_price(holding, date) if holding else None
+            action = ''
+
+            if i == 0:
+                if current_price:
+                    holding = best_etf
+                    buy_price = current_price
+                    action = 'buy'
+                    trades.append({
+                        'date': date.strftime('%Y-%m-%d'),
+                        'action': '买入',
+                        'etf': holding,
+                        'etf_name': get_etf_name(holding),
+                        'price': round(buy_price, 4),
+                    })
+            else:
+                if best_etf != holding:
+                    if holding and holding_price and buy_price > 0:
+                        trade_return = holding_price / buy_price - 1
+                        if trade_return > 0:
+                            win_count += 1
+                        else:
+                            loss_count += 1
+                        trades.append({
+                            'date': date.strftime('%Y-%m-%d'),
+                            'action': '卖出',
+                            'etf': holding,
+                            'etf_name': get_etf_name(holding),
+                            'price': round(holding_price, 4),
+                            'return': round(trade_return * 100, 2),
+                        })
+
+                    if current_price:
+                        holding = best_etf
+                        buy_price = current_price
+                        action = 'switch'
+                        trades.append({
+                            'date': date.strftime('%Y-%m-%d'),
+                            'action': '买入',
+                            'etf': holding,
+                            'etf_name': get_etf_name(holding),
+                            'price': round(buy_price, 4),
+                        })
+
+            # 计算当日净值
+            if holding and buy_price > 0:
+                hp = get_price(holding, date)
+                if hp:
+                    if len(nav_series) == 0:
+                        nav = hp / buy_price
+                    else:
+                        last_nav = nav_series[-1]['nav']
+                        if action in ('buy', 'switch'):
+                            nav = last_nav
+                        else:
+                            prev_hp = get_price(holding, trade_dates[i - 1]) if i > 0 else buy_price
+                            if prev_hp and prev_hp > 0:
+                                nav = last_nav * (hp / prev_hp)
+                            else:
+                                nav = last_nav
+
+            if nav > max_nav:
+                max_nav = nav
+            dd = (max_nav - nav) / max_nav
+            if dd > max_drawdown:
+                max_drawdown = dd
+
+            day_trades = [t for t in trades if t['date'] == date.strftime('%Y-%m-%d')]
+            trade_actions = []
+            for t in day_trades:
+                ta = {
+                    'action': t['action'],
+                    'etf_name': t['etf_name'],
+                    'etf': t['etf'],
+                    'price': t['price'],
+                }
+                if 'return' in t:
+                    ta['return'] = t['return']
+                trade_actions.append(ta)
+
+            nav_series.append({
+                'date': date.strftime('%Y-%m-%d'),
+                'nav': round(nav, 6),
+                'holding': get_etf_name(holding) if holding else '-',
+                'holding_code': holding or '',
+                'trade_actions': trade_actions,
+            })
+
+        if len(nav_series) < 2:
+            return {'error': '回测数据不足'}
+
+        total_return = nav_series[-1]['nav'] / nav_series[0]['nav'] - 1
+        days_count = (pd.to_datetime(nav_series[-1]['date']) - pd.to_datetime(nav_series[0]['date'])).days
+        annual_return = (1 + total_return) ** (365 / max(days_count, 1)) - 1 if days_count > 0 else 0
+
+        navs = [p['nav'] for p in nav_series]
+        daily_returns = []
+        for j in range(1, len(navs)):
+            daily_returns.append(navs[j] / navs[j - 1] - 1)
+        if daily_returns:
+            avg_daily = np.mean(daily_returns)
+            std_daily = np.std(daily_returns)
+            sharpe = (avg_daily - 0.02 / 250) / std_daily * np.sqrt(250) if std_daily > 0 else 0
+        else:
+            sharpe = 0
+
+        total_trades = win_count + loss_count
+        win_rate = win_count / total_trades if total_trades > 0 else 0
+
+        stats = {
+            'total_return': round(total_return * 100, 2),
+            'annual_return': round(annual_return * 100, 2),
+            'max_drawdown': round(max_drawdown * 100, 2),
+            'sharpe_ratio': round(sharpe, 2),
+            'total_trades': total_trades,
+            'win_rate': round(win_rate * 100, 1),
+            'win_count': win_count,
+            'loss_count': loss_count,
+            'trade_days': len(nav_series),
+            'start_date': nav_series[0]['date'],
+            'end_date': nav_series[-1]['date'],
+        }
+
+        return {
+            'nav_series': nav_series,
+            'stats': stats,
+            'trades': trades[-50:],
         }
