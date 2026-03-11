@@ -1,0 +1,21 @@
+# Python
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+dist/
+build/
+
+# 数据和日志
+data/
+app.log
+*.db
+
+# IDE
+.vscode/
+.idea/
+.DS_Store
+
+# CodeBuddy
+.codebuddy/

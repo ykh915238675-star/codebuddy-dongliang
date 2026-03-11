@@ -1,0 +1,9 @@
+flask==3.0.0
+flask-login==0.6.3
+flask-sqlalchemy==3.1.1
+flask-apscheduler==1.13.1
+akshare==1.14.68
+numpy==1.26.4
+pandas==2.2.0
+werkzeug==3.0.1
+gunicorn==21.2.0
