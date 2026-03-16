@@ -3,3 +3,5 @@ akshare>=1.14.68
 numpy>=1.26.4
 pandas>=2.2.0
 werkzeug>=3.0.1
+apscheduler>=3.10.0
+requests>=2.31.0

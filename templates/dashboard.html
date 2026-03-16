@@ -424,9 +424,12 @@
             padding: 3px 10px;
             border-radius: 6px;
         }
-        .table-scroll { overflow-x: auto; }
+        .table-scroll {
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+        }
 
-        table { width: 100%; border-collapse: collapse; }
+        table { width: 100%; border-collapse: collapse; min-width: 600px; }
         thead th {
             padding: 11px 16px;
             text-align: left;
@@ -646,6 +649,7 @@
         .bt-chart-wrap canvas {
             width: 100% !important;
             height: 100% !important;
+            touch-action: none;
         }
 
         /* 买卖点 Tooltip */
@@ -873,6 +877,204 @@
             padding: 1px 6px;
             border-radius: 4px;
         }
+
+        /* ====== 通知设置按钮 ====== */
+        .notify-btn {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 7px 14px;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            background: rgba(255,255,255,0.04);
+            color: var(--text-secondary);
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .notify-btn:hover {
+            background: rgba(255,255,255,0.08);
+            color: var(--text-primary);
+            border-color: var(--border-accent);
+        }
+        .notify-btn.active {
+            background: rgba(34,197,94,0.1);
+            color: var(--green-soft);
+            border-color: var(--green-border);
+        }
+        .notify-dot {
+            width: 7px; height: 7px;
+            border-radius: 50%;
+            background: var(--text-muted);
+        }
+        .notify-dot.on { background: var(--green); box-shadow: 0 0 6px rgba(34,197,94,0.4); }
+
+        /* ====== 通知弹窗 ====== */
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.6);
+            backdrop-filter: blur(6px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+        .modal-card {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            width: 480px;
+            max-width: 92vw;
+            overflow: hidden;
+        }
+        .modal-header {
+            padding: 24px 28px 0;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .modal-header h3 {
+            font-size: 17px;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .modal-close {
+            width: 32px; height: 32px;
+            border-radius: 8px;
+            border: none;
+            background: rgba(255,255,255,0.05);
+            color: var(--text-secondary);
+            font-size: 16px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.15s;
+        }
+        .modal-close:hover { background: rgba(255,255,255,0.1); color: var(--text-primary); }
+        .modal-body { padding: 24px 28px; }
+        .modal-footer {
+            padding: 16px 28px 24px;
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+        }
+
+        .form-group { margin-bottom: 20px; }
+        .form-label {
+            display: block;
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            margin-bottom: 8px;
+        }
+        .form-input {
+            width: 100%;
+            padding: 10px 14px;
+            background: var(--bg-elevated);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            color: var(--text-primary);
+            font-size: 13px;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+        .form-input:focus { border-color: var(--accent); }
+        .form-input::placeholder { color: var(--text-muted); }
+        .form-hint {
+            margin-top: 6px;
+            font-size: 11px;
+            color: var(--text-muted);
+            line-height: 1.5;
+        }
+
+        .toggle-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 0;
+        }
+        .toggle-label {
+            font-size: 14px;
+            font-weight: 600;
+        }
+        .toggle-switch {
+            position: relative;
+            width: 44px; height: 24px;
+            border-radius: 12px;
+            background: rgba(255,255,255,0.1);
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .toggle-switch.on { background: var(--green); }
+        .toggle-switch::after {
+            content: '';
+            position: absolute;
+            top: 2px; left: 2px;
+            width: 20px; height: 20px;
+            border-radius: 50%;
+            background: #fff;
+            transition: transform 0.2s;
+        }
+        .toggle-switch.on::after { transform: translateX(20px); }
+
+        .btn-secondary {
+            padding: 10px 22px;
+            border-radius: var(--radius-sm);
+            border: 1px solid var(--border);
+            background: transparent;
+            color: var(--text-secondary);
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .btn-secondary:hover {
+            background: rgba(255,255,255,0.05);
+            color: var(--text-primary);
+        }
+
+        .btn-test {
+            padding: 8px 16px;
+            border-radius: 8px;
+            border: 1px solid var(--accent);
+            background: rgba(99,102,241,0.1);
+            color: var(--accent-light);
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .btn-test:hover {
+            background: rgba(99,102,241,0.2);
+        }
+        .btn-test:disabled { opacity: 0.4; cursor: not-allowed; }
+
+        .notify-status {
+            margin-top: 12px;
+            padding: 10px 14px;
+            border-radius: var(--radius-sm);
+            font-size: 12px;
+            font-weight: 600;
+            display: none;
+        }
+        .notify-status.success {
+            display: block;
+            background: var(--green-bg);
+            color: var(--green-soft);
+            border: 1px solid var(--green-border);
+        }
+        .notify-status.error {
+            display: block;
+            background: var(--red-bg);
+            color: var(--red);
+            border: 1px solid var(--red-border);
+        }
+
         .defense-note {
             margin-top: 12px;
             padding: 10px 14px;
@@ -917,19 +1119,362 @@
 
         .hidden { display: none !important; }
 
-        /* ====== 响应式 ====== */
+        /* ====== 响应式 - 平板 ====== */
+        @media (max-width: 900px) {
+            .bt-stats-grid {
+                grid-template-columns: repeat(3, 1fr);
+            }
+            .target-metrics { gap: 14px; }
+            .tm-item { min-width: 64px; }
+            .tm-value { font-size: 16px; }
+        }
+
+        /* ====== 响应式 - 手机 ====== */
         @media (max-width: 768px) {
-            .main-content { padding: 16px 14px 40px; }
-            .navbar { padding: 0 16px; }
-            .hero-header { padding: 24px 20px 0; flex-direction: column; gap: 12px; }
-            .hero-targets { padding: 20px; }
-            .target-card { flex-direction: column; align-items: flex-start; gap: 16px; padding: 20px; }
-            .target-metrics { width: 100%; justify-content: space-between; }
-            .tm-item { text-align: left; }
-            .filter-grid { grid-template-columns: 1fr; }
-            thead th, tbody td { padding: 9px 10px; font-size: 11px; }
-            .hero-title { font-size: 18px; }
-            .target-name { font-size: 17px; }
+            /* 导航栏：改为两行布局 */
+            .navbar {
+                padding: 8px 16px;
+                height: auto;
+                flex-wrap: wrap;
+                gap: 8px;
+            }
+            .nav-brand {
+                font-size: 15px;
+                gap: 8px;
+            }
+            .nav-brand-icon {
+                width: 28px; height: 28px;
+                font-size: 13px;
+                border-radius: 8px;
+            }
+            .nav-right {
+                gap: 8px;
+            }
+            .nav-date {
+                font-size: 11px;
+            }
+            .strategy-tabs {
+                order: 3;
+                width: 100%;
+                justify-content: center;
+            }
+            .strategy-tab {
+                flex: 1;
+                text-align: center;
+                padding: 6px 10px;
+                font-size: 12px;
+            }
+
+            /* 主内容区 */
+            .main-content {
+                padding: 14px 12px 40px;
+            }
+
+            /* 操作区 */
+            .action-bar {
+                margin-bottom: 20px;
+                gap: 8px;
+            }
+            .btn {
+                padding: 8px 16px;
+                font-size: 13px;
+                gap: 6px;
+            }
+            .update-info {
+                font-size: 11px;
+            }
+
+            /* 今日操作建议 - 核心 */
+            .section-label {
+                font-size: 12px;
+                margin-bottom: 10px;
+            }
+            .hero-header {
+                padding: 20px 16px 0;
+                flex-direction: column;
+                gap: 10px;
+            }
+            .hero-icon {
+                width: 44px; height: 44px;
+                border-radius: 12px;
+                font-size: 20px;
+            }
+            .hero-title {
+                font-size: 17px;
+            }
+            .hero-subtitle {
+                font-size: 12px;
+            }
+            .hero-mode-tag {
+                align-self: flex-start;
+                padding: 4px 10px;
+                font-size: 11px;
+            }
+
+            /* 推荐ETF卡片 */
+            .hero-targets {
+                padding: 16px;
+                gap: 12px;
+            }
+            .target-card {
+                flex-direction: column;
+                align-items: stretch;
+                gap: 12px;
+                padding: 16px;
+            }
+            .target-rank {
+                width: 36px; height: 36px;
+                border-radius: 10px;
+                font-size: 14px;
+            }
+            /* 移动端：名称和排名一行 */
+            .target-card > .target-rank,
+            .target-card > .target-info {
+                display: inline;
+            }
+            .target-name {
+                font-size: 16px;
+            }
+            .target-meta {
+                flex-wrap: wrap;
+                gap: 6px;
+                font-size: 12px;
+            }
+            .target-code {
+                font-size: 11px;
+            }
+            /* 指标区：改为横排均分 */
+            .target-metrics {
+                width: 100%;
+                display: grid;
+                grid-template-columns: repeat(3, 1fr);
+                gap: 8px;
+                padding-top: 12px;
+                border-top: 1px solid var(--border);
+            }
+            .tm-item {
+                text-align: center;
+                min-width: 0;
+            }
+            .tm-label {
+                font-size: 10px;
+                margin-bottom: 2px;
+            }
+            .tm-value {
+                font-size: 15px;
+            }
+
+            /* 空状态 */
+            .hero-empty {
+                padding: 36px 20px;
+            }
+            .hero-empty-icon {
+                font-size: 32px;
+            }
+            .hero-empty-text {
+                font-size: 13px;
+            }
+
+            /* 表格区域 */
+            .table-card-header {
+                padding: 14px 16px;
+            }
+            .table-card-header h3 {
+                font-size: 14px;
+                gap: 6px;
+            }
+            thead th {
+                padding: 8px 8px;
+                font-size: 10px;
+                letter-spacing: 0.3px;
+            }
+            tbody td {
+                padding: 10px 8px;
+                font-size: 12px;
+            }
+            .rank-badge {
+                width: 22px; height: 22px;
+                font-size: 10px;
+                border-radius: 6px;
+            }
+            .etf-name-main { font-size: 12px; }
+            .etf-name-code { font-size: 10px; }
+            .score-bar-track { min-width: 30px; }
+
+            /* 回测区域 */
+            .backtest-card-header {
+                padding: 14px 16px;
+            }
+            .backtest-card-header h3 {
+                font-size: 14px;
+            }
+            .backtest-body {
+                padding: 16px;
+            }
+            .bt-controls {
+                flex-direction: column;
+                align-items: stretch;
+                gap: 10px;
+            }
+            .bt-preset-group {
+                width: 100%;
+            }
+            .bt-preset-btn {
+                flex: 1;
+                padding: 8px 8px;
+                font-size: 12px;
+                text-align: center;
+            }
+            .bt-sep {
+                text-align: center;
+                padding: 0;
+                display: none;
+            }
+            .bt-date-group {
+                width: 100%;
+                justify-content: space-between;
+            }
+            .bt-date-input {
+                flex: 1;
+                width: auto;
+                min-width: 0;
+                padding: 8px 8px;
+                font-size: 12px;
+            }
+
+            /* 统计卡片 */
+            .bt-stats-grid {
+                grid-template-columns: repeat(3, 1fr);
+                gap: 8px;
+            }
+            .bt-stat-item {
+                padding: 12px 8px;
+            }
+            .bt-stat-label {
+                font-size: 10px;
+                letter-spacing: 0.3px;
+                margin-bottom: 4px;
+            }
+            .bt-stat-value {
+                font-size: 17px;
+            }
+
+            /* 净值曲线 */
+            .bt-chart-wrap {
+                height: 240px;
+                margin-bottom: 16px;
+            }
+
+            /* 策略说明 */
+            .strategy-card-header {
+                padding: 14px 16px;
+            }
+            .strategy-card-header h3 {
+                font-size: 14px;
+            }
+            .strategy-body {
+                padding: 16px;
+            }
+            .strategy-desc {
+                font-size: 13px;
+                line-height: 1.6;
+            }
+            .strategy-steps li {
+                padding: 8px 12px 8px 32px;
+                font-size: 12px;
+            }
+            .strategy-steps li .step-num {
+                left: 10px;
+                font-size: 11px;
+            }
+            .filter-grid {
+                grid-template-columns: 1fr;
+                gap: 8px;
+            }
+            .filter-item {
+                padding: 12px;
+            }
+            .filter-name { font-size: 11px; }
+            .filter-desc { font-size: 11px; }
+            .etf-pool-tag {
+                font-size: 11px;
+                padding: 4px 10px;
+            }
+            .defense-note {
+                font-size: 11px;
+                padding: 8px 12px;
+            }
+
+            /* 弹窗 */
+            .modal-card {
+                max-width: 95vw;
+                max-height: 90vh;
+                overflow-y: auto;
+                border-radius: 16px;
+            }
+            .modal-header {
+                padding: 18px 20px 0;
+            }
+            .modal-header h3 {
+                font-size: 15px;
+            }
+            .modal-body {
+                padding: 18px 20px;
+            }
+            .modal-footer {
+                padding: 14px 20px 20px;
+            }
+            .form-input {
+                font-size: 14px;
+                padding: 10px 12px;
+            }
+
+            /* 加载遮罩 */
+            .loading-card {
+                padding: 32px 48px;
+            }
+        }
+
+        /* ====== 响应式 - 超小屏幕 (< 400px) ====== */
+        @media (max-width: 400px) {
+            .navbar {
+                padding: 6px 12px;
+            }
+            .main-content {
+                padding: 10px 8px 32px;
+            }
+            .hero-header {
+                padding: 16px 12px 0;
+            }
+            .hero-targets {
+                padding: 12px;
+            }
+            .target-card {
+                padding: 12px;
+                gap: 10px;
+            }
+            .target-name {
+                font-size: 14px;
+            }
+            .tm-value {
+                font-size: 13px;
+            }
+            .bt-stats-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+            .bt-stat-value {
+                font-size: 15px;
+            }
+            .bt-chart-wrap {
+                height: 200px;
+            }
+            .hero-icon {
+                width: 38px; height: 38px;
+                font-size: 18px;
+            }
+            .hero-title {
+                font-size: 15px;
+            }
         }
     </style>
 </head>
@@ -945,6 +1490,10 @@
             <button class="strategy-tab" data-strategy="topscore" onclick="switchStrategy('topscore')">最高评分</button>
         </div>
         <div class="nav-right">
+            <button class="notify-btn" id="notifyBtn" onclick="openNotifyModal()">
+                <span class="notify-dot" id="notifyDot"></span>
+                <span>通知</span>
+            </button>
             <span class="nav-date" id="navDate"></span>
         </div>
     </nav>
@@ -1063,7 +1612,7 @@
                         <!-- 净值曲线 -->
                         <div class="bt-chart-wrap" id="btChartWrap">
                             <canvas id="btCanvas"></canvas>
-                            <canvas id="btOverlay" style="position:absolute;top:0;left:0;pointer-events:none;"></canvas>
+                            <canvas id="btOverlay" style="position:absolute;top:0;left:0;pointer-events:none;touch-action:none;"></canvas>
                             <div class="bt-tooltip" id="btTooltip"></div>
                         </div>
                         <!-- 交易记录 -->
@@ -1111,6 +1660,80 @@
         <div class="loading-card">
             <div class="spinner"></div>
             <div class="loading-text" id="loadingText">正在获取行情数据...</div>
+        </div>
+    </div>
+
+    <!-- 通知设置弹窗 -->
+    <div class="modal-overlay hidden" id="notifyModal" onclick="if(event.target===this)closeNotifyModal()">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h3>🔔 通知设置</h3>
+                <button class="modal-close" onclick="closeNotifyModal()">✕</button>
+            </div>
+            <div class="modal-body">
+                <div class="toggle-row">
+                    <span class="toggle-label">启用买卖变动通知</span>
+                    <div class="toggle-switch" id="notifyToggle" onclick="toggleNotify()"></div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">企业微信 Webhook URL</label>
+                    <input type="text" class="form-input" id="webhookInput"
+                           placeholder="https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=xxx">
+                    <div class="form-hint">
+                        📌 获取方式：企业微信群 → 右上角「⋯」→ 群机器人 → 添加机器人 → 复制 Webhook 地址
+                    </div>
+                </div>
+
+                <!-- 自动监控设置 -->
+                <div style="border-top:1px solid var(--border);margin:20px 0 16px;"></div>
+                <div class="toggle-row">
+                    <div>
+                        <span class="toggle-label">⏰ 每日定时检查</span>
+                        <div style="font-size:11px;color:var(--text-muted);margin-top:2px;">每个工作日在指定时间自动刷新数据，有变动立即推送</div>
+                    </div>
+                    <div class="toggle-switch" id="autoCheckToggle" onclick="toggleAutoCheck()"></div>
+                </div>
+                <div id="autoCheckSettings" style="display:none;">
+                    <div class="form-group" style="margin-bottom:12px;">
+                        <label class="form-label">执行时间</label>
+                        <div style="display:flex;align-items:center;gap:10px;">
+                            <input type="time" id="checkTimeInput" value="14:30"
+                                   style="padding:8px 14px;background:var(--bg-elevated);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-primary);font-size:15px;font-weight:700;outline:none;font-family:'SF Mono','Fira Code',monospace;">
+                            <span style="font-size:12px;color:var(--text-muted);">每个工作日（周一至周五）</span>
+                        </div>
+                        <div class="form-hint">💡 建议设在 14:00-14:45 之间，此时日内行情已基本确定</div>
+                    </div>
+                    <div class="form-group" style="margin-bottom:12px;">
+                        <label class="form-label">监控策略</label>
+                        <div style="display:flex;gap:12px;">
+                            <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;">
+                                <input type="checkbox" id="checkMomentum" value="momentum" checked
+                                       style="accent-color:var(--accent);width:16px;height:16px;">
+                                动量轮动
+                            </label>
+                            <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;">
+                                <input type="checkbox" id="checkTopscore" value="topscore" checked
+                                       style="accent-color:var(--accent);width:16px;height:16px;">
+                                最高评分
+                            </label>
+                        </div>
+                    </div>
+                    <!-- 运行状态 -->
+                    <div id="schedulerStatus" style="padding:10px 14px;border-radius:var(--radius-sm);background:var(--bg-elevated);border:1px solid rgba(255,255,255,0.04);font-size:12px;color:var(--text-secondary);display:none;">
+                    </div>
+                </div>
+                <div style="border-top:1px solid var(--border);margin:16px 0;"></div>
+
+                <div style="display:flex;align-items:center;gap:12px;">
+                    <button class="btn-test" id="testNotifyBtn" onclick="sendTestNotify()">📤 发送测试通知</button>
+                    <span id="testResult" style="font-size:12px;color:var(--text-muted);"></span>
+                </div>
+                <div class="notify-status" id="notifyStatus"></div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" onclick="closeNotifyModal()">取消</button>
+                <button class="btn btn-primary" onclick="saveNotifyConfig()">保存配置</button>
+            </div>
         </div>
     </div>
 
@@ -1811,6 +2434,42 @@
                 canvas.style.cursor = 'default';
                 lastHighlightIdx = -1;
             };
+
+            // 移动端触摸支持
+            canvas.ontouchmove = function(e) {
+                e.preventDefault();
+                if (!_chartState) return;
+                const rect = canvas.getBoundingClientRect();
+                const touch = e.touches[0];
+                const mx = touch.clientX - rect.left;
+
+                const st = _chartState;
+                let closestIdx = -1;
+                let closestDist = Infinity;
+                for (let i = 0; i < st.navs.length; i++) {
+                    const d = Math.abs(st.xPos(i) - mx);
+                    if (d < closestDist) { closestDist = d; closestIdx = i; }
+                }
+
+                if (closestDist > 40 || closestIdx < 0) {
+                    clearOverlay();
+                    tooltip.classList.remove('visible');
+                    lastHighlightIdx = -1;
+                    return;
+                }
+
+                if (closestIdx === lastHighlightIdx) return;
+                lastHighlightIdx = closestIdx;
+
+                drawHighlight(closestIdx);
+                showTradeTooltip(closestIdx);
+            };
+
+            canvas.ontouchend = function() {
+                clearOverlay();
+                tooltip.classList.remove('visible');
+                lastHighlightIdx = -1;
+            };
         }
 
         // === 在 overlay canvas 上绘制高亮十字线和圆点 ===
@@ -1923,6 +2582,219 @@
         }
         function hideLoading() {
             document.getElementById('loadingOverlay').classList.add('hidden');
+        }
+
+        // ====== 通知功能 ======
+        let notifyEnabled = false;
+        let autoCheckEnabled = false;
+
+        // 页面加载时获取通知状态
+        document.addEventListener('DOMContentLoaded', () => {
+            loadNotifyStatus();
+        });
+
+        async function loadNotifyStatus() {
+            try {
+                const resp = await fetch('/api/notify/config');
+                if (resp.ok) {
+                    const cfg = await resp.json();
+                    notifyEnabled = cfg.enabled;
+                    autoCheckEnabled = cfg.auto_check;
+                    updateNotifyBtnState();
+                }
+            } catch (e) { /* 静默 */ }
+        }
+
+        function updateNotifyBtnState() {
+            const btn = document.getElementById('notifyBtn');
+            const dot = document.getElementById('notifyDot');
+            if (notifyEnabled) {
+                btn.classList.add('active');
+                dot.classList.add('on');
+            } else {
+                btn.classList.remove('active');
+                dot.classList.remove('on');
+            }
+            // 更新按钮文字显示自动监控状态
+            const labelSpan = btn.querySelector('span:last-child');
+            if (autoCheckEnabled && notifyEnabled) {
+                labelSpan.textContent = '自动监控中';
+            } else {
+                labelSpan.textContent = '通知';
+            }
+        }
+
+        async function openNotifyModal() {
+            document.getElementById('notifyModal').classList.remove('hidden');
+            document.getElementById('notifyStatus').style.display = 'none';
+            document.getElementById('testResult').textContent = '';
+
+            // 加载配置
+            try {
+                const resp = await fetch('/api/notify/config');
+                if (resp.ok) {
+                    const cfg = await resp.json();
+                    const toggle = document.getElementById('notifyToggle');
+                    const input = document.getElementById('webhookInput');
+
+                    if (cfg.enabled) {
+                        toggle.classList.add('on');
+                    } else {
+                        toggle.classList.remove('on');
+                    }
+                    input.value = cfg.webhook_url || '';
+                    input.placeholder = cfg.webhook_url_masked
+                        ? `当前：${cfg.webhook_url_masked}`
+                        : 'https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=xxx';
+
+                    // 自动监控配置
+                    const autoToggle = document.getElementById('autoCheckToggle');
+                    if (cfg.auto_check) {
+                        autoToggle.classList.add('on');
+                        document.getElementById('autoCheckSettings').style.display = 'block';
+                    } else {
+                        autoToggle.classList.remove('on');
+                        document.getElementById('autoCheckSettings').style.display = 'none';
+                    }
+
+                    // 设置时间选择器
+                    const h = String(cfg.check_hour ?? 14).padStart(2, '0');
+                    const m = String(cfg.check_minute ?? 30).padStart(2, '0');
+                    document.getElementById('checkTimeInput').value = `${h}:${m}`;
+
+                    // 策略复选框
+                    const strategies = cfg.check_strategies || ['momentum', 'topscore'];
+                    document.getElementById('checkMomentum').checked = strategies.includes('momentum');
+                    document.getElementById('checkTopscore').checked = strategies.includes('topscore');
+
+                    // 加载调度器状态
+                    loadSchedulerStatus();
+                }
+            } catch (e) { /* 静默 */ }
+        }
+
+        function closeNotifyModal() {
+            document.getElementById('notifyModal').classList.add('hidden');
+        }
+
+        function toggleNotify() {
+            const toggle = document.getElementById('notifyToggle');
+            toggle.classList.toggle('on');
+        }
+
+        function toggleAutoCheck() {
+            const toggle = document.getElementById('autoCheckToggle');
+            toggle.classList.toggle('on');
+            const settings = document.getElementById('autoCheckSettings');
+            settings.style.display = toggle.classList.contains('on') ? 'block' : 'none';
+        }
+
+        async function loadSchedulerStatus() {
+            try {
+                const resp = await fetch('/api/notify/scheduler/status');
+                if (resp.ok) {
+                    const st = await resp.json();
+                    const el = document.getElementById('schedulerStatus');
+                    if (st.job_active) {
+                        const timeStr = String(st.check_hour ?? 14).padStart(2,'0') + ':' + String(st.check_minute ?? 30).padStart(2,'0');
+                        el.style.display = 'block';
+                        el.innerHTML = `<span style="color:var(--green-soft);">● 运行中</span> · 每个工作日 ${timeStr} 执行 · 下次执行: ${st.next_run_time || '即将开始'}`;
+                    } else if (st.auto_check) {
+                        el.style.display = 'block';
+                        el.innerHTML = `<span style="color:var(--yellow);">○ 待启动</span> · 保存后生效`;
+                    } else {
+                        el.style.display = 'none';
+                    }
+                }
+            } catch(e) { /* 静默 */ }
+        }
+
+        async function saveNotifyConfig() {
+            const enabled = document.getElementById('notifyToggle').classList.contains('on');
+            const webhookUrl = document.getElementById('webhookInput').value.trim();
+            const autoCheck = document.getElementById('autoCheckToggle').classList.contains('on');
+            const statusEl = document.getElementById('notifyStatus');
+
+            // 解析时间
+            const timeVal = document.getElementById('checkTimeInput').value || '14:30';
+            const [checkHour, checkMinute] = timeVal.split(':').map(Number);
+
+            // 收集要监控的策略
+            const checkStrategies = [];
+            if (document.getElementById('checkMomentum').checked) checkStrategies.push('momentum');
+            if (document.getElementById('checkTopscore').checked) checkStrategies.push('topscore');
+
+            try {
+                const resp = await fetch('/api/notify/config', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        webhook_url: webhookUrl,
+                        enabled,
+                        auto_check: autoCheck,
+                        check_hour: checkHour,
+                        check_minute: checkMinute,
+                        check_strategies: checkStrategies,
+                    }),
+                });
+                const data = await resp.json();
+
+                if (resp.ok) {
+                    statusEl.className = 'notify-status success';
+                    const autoMsg = autoCheck ? `，每日 ${timeVal} 自动检查` : '';
+                    statusEl.textContent = '✅ ' + (data.message || '配置已保存') + autoMsg;
+                    statusEl.style.display = 'block';
+                    notifyEnabled = enabled;
+                    autoCheckEnabled = autoCheck;
+                    updateNotifyBtnState();
+                    loadSchedulerStatus();
+                    setTimeout(() => closeNotifyModal(), 1500);
+                } else {
+                    statusEl.className = 'notify-status error';
+                    statusEl.textContent = '❌ ' + (data.error || '保存失败');
+                    statusEl.style.display = 'block';
+                }
+            } catch (e) {
+                statusEl.className = 'notify-status error';
+                statusEl.textContent = '❌ 网络错误: ' + e.message;
+                statusEl.style.display = 'block';
+            }
+        }
+
+        async function sendTestNotify() {
+            const btn = document.getElementById('testNotifyBtn');
+            const resultEl = document.getElementById('testResult');
+            btn.disabled = true;
+            resultEl.textContent = '发送中...';
+            resultEl.style.color = 'var(--text-muted)';
+
+            // 先保存当前输入的配置
+            const webhookUrl = document.getElementById('webhookInput').value.trim();
+            const enabled = document.getElementById('notifyToggle').classList.contains('on');
+            if (webhookUrl) {
+                await fetch('/api/notify/config', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ webhook_url: webhookUrl, enabled }),
+                });
+            }
+
+            try {
+                const resp = await fetch('/api/notify/test', { method: 'POST' });
+                const data = await resp.json();
+                if (resp.ok && data.success) {
+                    resultEl.textContent = '✅ 发送成功，请查看企业微信';
+                    resultEl.style.color = 'var(--green-soft)';
+                } else {
+                    resultEl.textContent = '❌ ' + (data.error || data.message || '发送失败');
+                    resultEl.style.color = 'var(--red)';
+                }
+            } catch (e) {
+                resultEl.textContent = '❌ 网络错误';
+                resultEl.style.color = 'var(--red)';
+            } finally {
+                btn.disabled = false;
+            }
         }
     </script>
 </body>
