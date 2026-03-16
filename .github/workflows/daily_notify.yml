@@ -1,0 +1,47 @@
+name: 📊 每日策略推送
+
+on:
+  schedule:
+    # 每个工作日北京时间 14:30 执行（UTC 时间 06:30）
+    - cron: '30 6 * * 1-5'
+  # 支持手动触发（方便测试）
+  workflow_dispatch:
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 📥 拉取代码
+        uses: actions/checkout@v4
+
+      - name: 🐍 安装 Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: 📦 安装依赖
+        run: |
+          pip install akshare numpy pandas requests
+
+      - name: 🔄 恢复上次推荐记录
+        uses: actions/cache@v4
+        with:
+          path: /tmp/quant_records
+          key: notify-records-${{ github.ref_name }}
+          restore-keys: |
+            notify-records-
+
+      - name: 🚀 执行策略计算并推送
+        env:
+          WECHAT_WORK_WEBHOOK: ${{ secrets.WECHAT_WORK_WEBHOOK }}
+          TZ: Asia/Shanghai
+        run: |
+          python cron_notify.py
+
+      - name: 💾 保存推荐记录（用于下次对比变动）
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: /tmp/quant_records
+          key: notify-records-${{ github.ref_name }}-${{ github.run_id }}
