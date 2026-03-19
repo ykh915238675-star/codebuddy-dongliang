@@ -54,6 +54,31 @@ def save_last(strategy, etf_code, defense_mode):
                     'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S')}, f, ensure_ascii=False, indent=2)
 
 
+def build_ranking_table(result, strategy):
+    """构建 ETF 得分排名表"""
+    ranked = result.get('ranked_etfs', [])
+    filtered = result.get('filtered_etfs', [])
+
+    lines = []
+    # 排名内的 ETF
+    for i, etf in enumerate(ranked):
+        name = etf.get('etf_name', '')
+        code = etf.get('etf', '').split('.')[0]
+        score = etf.get('score', 0)
+        marker = ' 👈' if i == 0 and not result.get('defense_mode', False) else ''
+        lines.append(f"> {i+1}. {name}({code}) 得分:**{score:.4f}**{marker}")
+
+    # 被过滤的 ETF
+    for etf in filtered:
+        name = etf.get('etf_name', '')
+        code = etf.get('etf', '').split('.')[0]
+        reason = etf.get('filter_reason', '已过滤')
+        score = etf.get('score', 0)
+        lines.append(f"> ❌ {name}({code}) {score:.4f} - {reason}")
+
+    return '\n'.join(lines) if lines else '> 无排名数据'
+
+
 def build_message(strategy, result, last):
     etfs = result.get('target_etfs', [])
     defense = result.get('defense_mode', False)
@@ -76,6 +101,9 @@ def build_message(strategy, result, last):
 
     ln = get_etf_name(le) if le else '无'
 
+    # 得分排名表
+    ranking = build_ranking_table(result, strategy)
+
     if changed:
         if ctype == 'to_defense':
             title = f"🚨🛡️ 【{sname}】⚠️ 变动：切换至防御模式！"
@@ -86,11 +114,19 @@ def build_message(strategy, result, last):
                 detail += "**原因**: 所有ETF均不满足筛选条件\n"
         elif ctype == 'from_defense':
             title = f"🚨🚀 【{sname}】⚠️ 变动：发现买入信号！"
-            detail = f"**原状态**: 防御模式（空仓）\n**建议买入**: <font color=\"info\">{name}（{code}）</font>\n**综合得分**: {score:.4f}\n"
+            detail = (
+                f"**原状态**: 防御模式（空仓）\n"
+                f"**建议买入**: <font color=\"info\">{name}（{code}）</font>\n"
+                f"**综合得分**: {score:.4f}\n"
+            )
         else:
             title = f"🚨🔄 【{sname}】⚠️ 变动：持仓需调整！"
-            detail = f"**卖出**: <font color=\"warning\">{ln}（{le}）</font>\n**买入**: <font color=\"info\">{name}（{code}）</font>\n**综合得分**: {score:.4f}\n"
-        msg = f"{title}\n\n{detail}\n> 📌 请注意操作！推荐已发生变更\n\n⏰ {now}"
+            detail = (
+                f"**卖出**: <font color=\"warning\">{ln}（{le}）</font>\n"
+                f"**买入**: <font color=\"info\">{name}（{code}）</font>\n"
+                f"**综合得分**: {score:.4f}\n"
+            )
+        msg = f"{title}\n\n{detail}\n📊 **今日排名**:\n{ranking}\n\n> 📌 请注意操作！推荐已发生变更\n\n⏰ {now}"
     else:
         if defense:
             status = '🛡️ 防御模式（空仓）'
@@ -102,7 +138,7 @@ def build_message(strategy, result, last):
         detail = f"**状态**: {status}\n**建议**: {hold}\n"
         if last:
             detail += f"**上次变动**: {last.get('timestamp', '未知')}\n"
-        msg = f"{title}\n\n{detail}\n> 💤 推荐未变化，无需操作\n\n⏰ {now}"
+        msg = f"{title}\n\n{detail}\n📊 **今日排名**:\n{ranking}\n\n> 💤 推荐未变化，无需操作\n\n⏰ {now}"
 
     return msg, changed, code, defense
 
@@ -144,6 +180,8 @@ def main():
                 success_count += 1
         except Exception as e:
             print(f"[{strategy}] 计算出错: {e}")
+            import traceback
+            traceback.print_exc()
             # 发送错误通知
             sname = '动量轮动' if strategy == 'momentum' else '最高评分'
             err_msg = f"❌ 【{sname}】策略计算失败\n\n**错误**: {str(e)[:200]}\n\n⏰ {now.strftime('%Y-%m-%d %H:%M')}"

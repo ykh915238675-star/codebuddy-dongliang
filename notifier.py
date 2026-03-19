@@ -106,10 +106,33 @@ class WeChatWorkNotifier:
         except Exception as e:
             print(f"[通知] 保存上次推荐失败: {e}")
 
+    def _build_ranking_table(self, result):
+        """构建 ETF 得分排名表"""
+        ranked = result.get('ranked_etfs', [])
+        filtered = result.get('filtered_etfs', [])
+
+        lines = []
+        for i, etf in enumerate(ranked):
+            name = etf.get('etf_name', '')
+            code = etf.get('etf', '').split('.')[0]
+            score = etf.get('score', 0)
+            marker = ' 👈' if i == 0 and not result.get('defense_mode', False) else ''
+            lines.append(f"> {i+1}. {name}({code}) 得分:**{score:.4f}**{marker}")
+
+        for etf in filtered:
+            name = etf.get('etf_name', '')
+            code = etf.get('etf', '').split('.')[0]
+            reason = etf.get('filter_reason', '已过滤')
+            score = etf.get('score', 0)
+            lines.append(f"> ❌ {name}({code}) {score:.4f} - {reason}")
+
+        return '\n'.join(lines) if lines else '> 无排名数据'
+
     def check_and_notify(self, strategy, result):
         """
         检查策略推荐是否有变动，无论是否变动都发送通知。
         有变动时特殊醒目提醒，无变动时发送日常报告。
+        通知中包含完整的 ETF 得分排名表。
         
         参数:
             strategy: 策略名称 ('momentum' 或 'topscore')
@@ -156,6 +179,9 @@ class WeChatWorkNotifier:
         from engine import get_etf_name
         last_etf_name = get_etf_name(last_etf) if last_etf else '无'
 
+        # 构建排名表
+        ranking = self._build_ranking_table(result)
+
         # ==================== 构建通知消息 ====================
         if changed:
             # ⚠️ 有变动 —— 醒目提醒
@@ -186,7 +212,7 @@ class WeChatWorkNotifier:
                     f"**综合得分**: {current_score:.4f}\n"
                 )
 
-            message = f"{title}\n\n{detail}\n> 📌 请注意操作！推荐已发生变更\n\n⏰ {now}"
+            message = f"{title}\n\n{detail}\n📊 **今日排名**:\n{ranking}\n\n> 📌 请注意操作！推荐已发生变更\n\n⏰ {now}"
 
         else:
             # ✅ 无变动 —— 日常平安报告
@@ -207,7 +233,7 @@ class WeChatWorkNotifier:
                 last_time = last.get('timestamp', '未知')
                 detail += f"**上次变动**: {last_time}\n"
 
-            message = f"{title}\n\n{detail}\n> 💤 推荐未变化，无需操作\n\n⏰ {now}"
+            message = f"{title}\n\n{detail}\n📊 **今日排名**:\n{ranking}\n\n> 💤 推荐未变化，无需操作\n\n⏰ {now}"
 
         # 发送通知
         success = self._send_markdown(message)

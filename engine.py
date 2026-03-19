@@ -163,6 +163,102 @@ class QuantEngine:
         
         # 价格数据缓存
         self._price_cache = {}
+        # 实时行情缓存（全市场ETF实时数据，5分钟刷新一次）
+        self._realtime_cache = None
+        self._realtime_cache_time = None
+    
+    def get_realtime_etf_data(self):
+        """
+        获取全市场ETF实时行情数据（缓存5分钟）
+        返回 DataFrame，包含 代码、成交量 等字段
+        """
+        now = datetime.now()
+        if (self._realtime_cache is not None 
+            and self._realtime_cache_time is not None
+            and (now - self._realtime_cache_time).seconds < 300):
+            return self._realtime_cache
+        
+        try:
+            df = ak.fund_etf_spot_em()
+            if df is not None and not df.empty:
+                self._realtime_cache = df
+                self._realtime_cache_time = now
+                return df
+        except Exception as e:
+            print(f"获取ETF实时行情失败: {e}")
+        
+        return self._realtime_cache  # 失败时返回上次缓存
+    
+    def get_realtime_volume(self, jq_code):
+        """
+        获取单只ETF今日实时成交量
+        与聚宽策略保持一致：用今日盘中实时累计成交量作为当日成交量
+        而非使用历史日线中昨天的数据
+        
+        优先级：
+        1. fund_etf_spot_em 实时行情（盘中最准确）
+        2. fund_etf_hist_em 历史日线（收盘后有今日数据）
+        
+        注意单位一致性：
+        - fund_etf_hist_sina 的 volume 单位较大（通常是"股"，数值在亿级别）
+        - fund_etf_spot_em / fund_etf_hist_em 的成交量可能是"手"（小100倍）
+        - 通过与历史均量比较，自动检测并修正单位差异
+        
+        返回: float (成交量，已校准与历史日线同单位) 或 None
+        """
+        pure_code = jq_code_to_pure(jq_code)
+        today_str = datetime.now().strftime('%Y-%m-%d')
+        raw_volume = None
+        source = ""
+        
+        # 方案1: 从实时行情获取（盘中最准确）
+        df = self.get_realtime_etf_data()
+        if df is not None and not df.empty:
+            try:
+                row = df[df['代码'] == pure_code]
+                if not row.empty:
+                    vol = float(row.iloc[0]['成交量'])
+                    if vol > 0:
+                        raw_volume = vol
+                        source = "spot_em"
+            except Exception as e:
+                print(f"从实时行情获取 {jq_code} 成交量失败: {e}")
+        
+        # 方案2: 从东方财富历史日线获取今天的数据（收盘后可用）
+        if raw_volume is None:
+            try:
+                df_em = ak.fund_etf_hist_em(symbol=pure_code, adjust="qfq")
+                if df_em is not None and not df_em.empty:
+                    df_em['日期'] = pd.to_datetime(df_em['日期']).dt.strftime('%Y-%m-%d')
+                    today_row = df_em[df_em['日期'] == today_str]
+                    if not today_row.empty:
+                        vol = float(today_row.iloc[0]['成交量'])
+                        if vol > 0:
+                            raw_volume = vol
+                            source = "hist_em"
+            except Exception as e:
+                print(f"从EM历史接口获取 {jq_code} 今日成交量失败: {e}")
+        
+        if raw_volume is None:
+            return None
+        
+        # 自动校准单位：将实时量与历史日均量对比
+        # 如果比值差异在50~200之间，说明单位差了100倍（手vs股）
+        hist_df = self.get_etf_history(jq_code, days=10)
+        if hist_df is not None and len(hist_df) >= 3:
+            recent_avg = np.mean(hist_df['volume'].values[-5:])
+            if recent_avg > 0:
+                naive_ratio = raw_volume / recent_avg
+                if naive_ratio < 0.02:
+                    # 实时量远小于历史均量 → 实时量是"手"，历史是"股"，需要 ×100
+                    raw_volume = raw_volume * 100
+                    print(f"[实时量] {get_etf_name(jq_code)} 单位校准: ×100 (source={source})")
+                elif naive_ratio > 50:
+                    # 实时量远大于历史均量 → 实时量是"股"，历史是"手"，需要 ÷100
+                    raw_volume = raw_volume / 100
+                    print(f"[实时量] {get_etf_name(jq_code)} 单位校准: ÷100 (source={source})")
+        
+        return raw_volume
     
     def get_etf_history(self, jq_code, days=60):
         """
@@ -261,14 +357,29 @@ class QuantEngine:
         annualized_returns = math.exp(slope * 250) - 1
         return annualized_returns
     
-    def calculate_volume_ratio(self, df, lookback=5):
-        """计算成交量比值"""
+    def calculate_volume_ratio(self, df, lookback=5, realtime_volume=None):
+        """
+        计算成交量比值
+        
+        关键改进：当提供 realtime_volume 时，使用今日实时累计成交量作为"当日量"，
+        历史日线的最近 lookback 天作为均量基准。
+        这与聚宽策略行为一致（聚宽用盘中分钟数据累加得到今日量）。
+        
+        如果没有提供 realtime_volume，则回退到原有逻辑（用历史日线最后一天）。
+        """
         if df is None or len(df) < lookback + 1:
             return None
         
         volumes = df['volume'].values
-        avg_volume = np.mean(volumes[-(lookback+1):-1])
-        current_volume = volumes[-1]
+        
+        if realtime_volume is not None:
+            # 使用实时成交量：均量取历史日线最近 lookback 天
+            avg_volume = np.mean(volumes[-lookback:])
+            current_volume = realtime_volume
+        else:
+            # 回退：用历史日线数据（可能是昨天的量）
+            avg_volume = np.mean(volumes[-(lookback+1):-1])
+            current_volume = volumes[-1]
         
         if avg_volume > 0:
             ratio = current_volume / avg_volume
@@ -296,17 +407,26 @@ class QuantEngine:
             price_series = df['close'].values.astype(float)
             current_price = price_series[-1]
             
-            # ========== 成交量过滤检查 ==========
+            # ========== 成交量过滤检查（仅在交易时段获取实时成交量）==========
             if self.enable_volume_check and len(price_series) > self.lookback_days:
-                volume_ratio = self.calculate_volume_ratio(df, self.volume_lookback)
+                # 只在交易日的 13:30~15:00 窗口获取实时成交量
+                # 覆盖：本地定时任务 14:30 + GitHub Actions cron（约13:40~14:20到达）
+                # 其他时间直接用历史日线数据，避免无意义的网络请求
+                now = datetime.now()
+                hour_min = now.hour * 100 + now.minute  # 如 1430 表示 14:30
+                in_trading_window = (now.weekday() < 5 and 
+                                     1330 <= hour_min <= 1500)
+                realtime_vol = self.get_realtime_volume(jq_code) if in_trading_window else None
+                volume_ratio = self.calculate_volume_ratio(df, self.volume_lookback, realtime_volume=realtime_vol)
                 if volume_ratio is not None:
                     volume_annualized = self.get_annualized_returns(price_series, self.lookback_days)
                     if volume_annualized > self.volume_return_limit:
+                        vol_source = "实时" if realtime_vol is not None else "历史"
                         return {
                             'etf': jq_code,
                             'etf_name': etf_name,
                             'filtered': True,
-                            'filter_reason': f'高位放量 (量比:{volume_ratio:.2f}, 年化:{volume_annualized:.2f})',
+                            'filter_reason': f'高位放量 (量比:{volume_ratio:.2f}, 年化:{volume_annualized:.2f}, {vol_source}成交量)',
                             'current_price': current_price,
                             'score': 0,
                         }
@@ -563,8 +683,10 @@ class QuantEngine:
         return results
     
     def clear_cache(self):
-        """清除价格数据缓存"""
+        """清除价格数据缓存和实时行情缓存"""
         self._price_cache = {}
+        self._realtime_cache = None
+        self._realtime_cache_time = None
 
     # ==================== 回测引擎 ====================
 

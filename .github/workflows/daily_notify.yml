@@ -2,9 +2,9 @@ name: 📊 每日策略推送
 
 on:
   schedule:
-    # 提前到北京时间 14:00 触发（UTC 06:00），留出延迟余量
-    # GitHub Actions cron 通常有 10-40 分钟延迟，实际约 14:10~14:40 收到
-    - cron: '0 6 * * 1-5'
+    # 北京时间 13:30 触发（UTC 05:30），提前触发以对冲 GitHub Actions 延迟
+    # GitHub Actions cron 通常有 10-50 分钟延迟，实际约 13:40~14:20 收到
+    - cron: '30 5 * * 1-5'
   # 支持手动触发（方便测试）
   workflow_dispatch:
 

@@ -107,6 +107,7 @@ def start_auto_check():
             id=AUTO_CHECK_JOB_ID,
             replace_existing=True,
             max_instances=1,
+            misfire_grace_time=3600,  # 错过后1小时内仍然补执行，防止macOS休眠导致跳过
         )
         logging.info(f"[自动监控] 已启动，每个工作日 {check_hour:02d}:{check_minute:02d} 执行")
     else:
