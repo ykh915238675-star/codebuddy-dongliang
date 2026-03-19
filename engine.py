@@ -411,25 +411,29 @@ class QuantEngine:
             if self.enable_volume_check and len(price_series) > self.lookback_days:
                 # 只在交易日的 13:30~15:00 窗口获取实时成交量
                 # 覆盖：本地定时任务 14:30 + GitHub Actions cron（约13:40~14:20到达）
-                # 其他时间直接用历史日线数据，避免无意义的网络请求
                 now = datetime.now()
                 hour_min = now.hour * 100 + now.minute  # 如 1430 表示 14:30
                 in_trading_window = (now.weekday() < 5 and 
                                      1330 <= hour_min <= 1500)
                 realtime_vol = self.get_realtime_volume(jq_code) if in_trading_window else None
-                volume_ratio = self.calculate_volume_ratio(df, self.volume_lookback, realtime_volume=realtime_vol)
-                if volume_ratio is not None:
-                    volume_annualized = self.get_annualized_returns(price_series, self.lookback_days)
-                    if volume_annualized > self.volume_return_limit:
-                        vol_source = "实时" if realtime_vol is not None else "历史"
-                        return {
-                            'etf': jq_code,
-                            'etf_name': etf_name,
-                            'filtered': True,
-                            'filter_reason': f'高位放量 (量比:{volume_ratio:.2f}, 年化:{volume_annualized:.2f}, {vol_source}成交量)',
-                            'current_price': current_price,
-                            'score': 0,
-                        }
+                
+                # 关键：只有拿到今日实时成交量时才做高位放量过滤
+                # 没有实时量时（盘后/非交易时段），跳过成交量过滤
+                # 因为历史日线最后一天是昨天的量，用昨天的量做今天的买入决策是错误的
+                # 聚宽策略也是用今日盘中实时量来判断的
+                if realtime_vol is not None:
+                    volume_ratio = self.calculate_volume_ratio(df, self.volume_lookback, realtime_volume=realtime_vol)
+                    if volume_ratio is not None:
+                        volume_annualized = self.get_annualized_returns(price_series, self.lookback_days)
+                        if volume_annualized > self.volume_return_limit:
+                            return {
+                                'etf': jq_code,
+                                'etf_name': etf_name,
+                                'filtered': True,
+                                'filter_reason': f'高位放量 (量比:{volume_ratio:.2f}, 年化:{volume_annualized:.2f}, 实时成交量)',
+                                'current_price': current_price,
+                                'score': 0,
+                            }
             
             # ========== RSI过滤检查 ==========
             rsi_filter_pass = True
